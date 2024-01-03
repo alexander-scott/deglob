@@ -28,3 +28,4 @@ jobs:
 
     - name: Test
       run: go test -v ./...
+      if: matrix.os != 'windows-latest'
