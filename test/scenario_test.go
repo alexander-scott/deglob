@@ -1,9 +1,10 @@
 package test
 
 import (
-	deglob "alexander-scott/deglob/internal"
 	"slices"
 	"testing"
+
+	deglob "github.com/alexander-scott/deglob/internal"
 )
 
 func TestScenario1(t *testing.T) {

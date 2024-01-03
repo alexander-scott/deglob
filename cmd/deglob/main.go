@@ -2,9 +2,10 @@
 package main
 
 import (
-	deglob "alexander-scott/deglob/internal"
 	"flag"
 	"os"
+
+	deglob "github.com/alexander-scott/deglob/internal"
 )
 
 func main() {
