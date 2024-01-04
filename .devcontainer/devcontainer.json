@@ -1,0 +1,55 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/go
+{
+	"name": "Go",
+	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+	"build": {
+		"dockerfile": "Dockerfile",
+		"args": {
+			"BAZELISK_VERSION": "v1.10.1",
+			"BAZELISK_DOWNLOAD_SHA": "4cb534c52cdd47a6223d4596d530e7c9c785438ab3b0a49ff347e991c210b2cd"
+		}
+	},
+
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	// "features": {},
+
+	// Configure tool-specific properties.
+	"customizations": {
+		// Configure properties specific to VS Code.
+		"vscode": {
+            "settings": {
+                "editor.formatOnSave": true,
+                "git.confirmSync": false,
+                "bazel.buildifierFixOnFormat": true,
+                "git.autofetch": true
+            },
+			"extensions": [
+				"golang.Go",
+                "bazelbuild.vscode-bazel",
+                "eamodio.gitlens",
+                "ms-python.python",
+                "ms-vsliveshare.vsliveshare",
+                "redhat.vscode-yaml"
+			]
+		}
+	},
+
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [9000],
+
+	// Use 'portsAttributes' to set default properties for specific forwarded ports.
+	// More info: https://containers.dev/implementors/json_reference/#port-attributes
+	"portsAttributes": {
+		"9000": {
+			"label": "Hello Remote World",
+			"onAutoForward": "notify"
+		}
+	},
+
+	// Use 'postCreateCommand' to run commands after the container is created.
+	"postCreateCommand": "go install"
+
+	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+	// "remoteUser": "root"
+}
