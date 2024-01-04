@@ -1,5 +1,4 @@
-package deglob
-
+// Package deglob allows you to remove all globs from files in a specified workspace path
 // 1) Find every file in a specified path
 // 2) Filter files by pattern
 // 3) For every filtered file, read the file contents
@@ -9,30 +8,35 @@ package deglob
 // 7) Create new bazel targets based on what files the glob captured
 // 8) Write the bazel targets to file
 // 9) Replace the original bazel target with a new target that has deps to all of the new targets
+package deglob
 
-func Run(workspace_path string, filter string) {
+// Run performs the main deglob logic, as specified in the package header
+func Run(workspacePath string, filter string) {
 	// 1) Find every file in a specified path
-	var all_files = FindAllFilesInDirectory(workspace_path)
+	allFiles := FindAllFilesInDirectory(workspacePath)
 
 	// 2) Filter files by regex pattern
-	var filtered_files = FilterPathsBasedOnRegexPattern(all_files, filter)
+	filteredFiles := FilterPathsBasedOnRegexPattern(allFiles, filter)
 
 	// 3) For every filtered file, read the file contents
-	for _, filtered_file := range filtered_files {
-		var new_file_contents []string = ProcessFile(filtered_file)
+	for _, filteredFile := range filteredFiles {
+		newFileContents := ProcessFile(filteredFile)
 
-		if new_file_contents != nil {
-			WriteContentsToFile(filtered_file, new_file_contents)
+		if newFileContents != nil {
+			WriteContentsToFile(filteredFile, newFileContents)
 		}
 	}
 }
 
-func ProcessFile(filtered_file string) []string {
-	var existing_file_contents []string = LoadFileContentsIntoMemory(filtered_file)
-	var targets_with_glob []Target = ExtractTargetsFromFileContents(existing_file_contents, filtered_file)
+// ProcessFile performs the deglob magic on a file at a specific path.
+// It reads the file contents, identifies all globs, and then produces the file
+// with the removal of the globs.
+func ProcessFile(filteredFile string) []string {
+	existingFileContents := LoadFileContentsIntoMemory(filteredFile)
+	targetsWithGlob := ExtractTargetsFromFileContents(existingFileContents, filteredFile)
 
-	if len(targets_with_glob) > 0 {
-		return CreateNewFileContentsIncludingNewTargets(existing_file_contents, targets_with_glob)
+	if len(targetsWithGlob) > 0 {
+		return CreateNewFileContentsIncludingNewTargets(existingFileContents, targetsWithGlob)
 	}
 
 	return nil

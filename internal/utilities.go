@@ -5,32 +5,33 @@ import (
 	"regexp"
 )
 
-func FilterPathsBasedOnRegexPattern(input_paths []string, filter string) []string {
-	// 2) Filter paths based on regex pattern
-	var filtered_paths []string
-	for _, file := range input_paths {
+// FilterPathsBasedOnRegexPattern filters list of paths based on a provided filter regex pattern
+// and then returns that new list
+func FilterPathsBasedOnRegexPattern(inputPaths []string, filter string) []string {
+	var filteredPaths []string
+	for _, file := range inputPaths {
 		matched, _ := regexp.MatchString(filter, file)
 		if matched {
-			filtered_paths = append(filtered_paths, file)
+			filteredPaths = append(filteredPaths, file)
 		}
 	}
-	return filtered_paths
+	return filteredPaths
 }
 
-func is_current_line_number_within_any_target(line_number int, targets []Target) bool {
+func isCurrentLineNumberWithinAnyTarget(lineNumber int, targets []Target) bool {
 	for _, target := range targets {
-		if line_number >= target.start && line_number <= target.end {
+		if lineNumber >= target.start && lineNumber <= target.end {
 			return true
 		}
 	}
 	return false
 }
 
-func return_target_in_current_line_number(line_number int, targets []Target) Target {
+func returnTargetInCurrentLineNumber(lineNumber int, targets []Target) Target {
 	for _, target := range targets {
-		if line_number >= target.start && line_number <= target.end {
+		if lineNumber >= target.start && lineNumber <= target.end {
 			return target
 		}
 	}
-	panic("No target found on line " + fmt.Sprint(line_number))
+	panic("No target found on line " + fmt.Sprint(lineNumber))
 }
