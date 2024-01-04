@@ -1,3 +1,3 @@
-module alexander-scott/deglob
+module github.com/alexander-scott/deglob
 
 go 1.21.5
