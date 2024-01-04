@@ -28,6 +28,7 @@ func TestScenarios(t *testing.T) {
 			// Assert
 			if !slices.Equal(expectedFileContents, actualFileContents) {
 				t.Errorf("Slices are not equivalent.\nexpectedFileContents: \n%s\nactualFileContents: \n%s\n", difference(expectedFileContents, actualFileContents), difference(actualFileContents, expectedFileContents))
+				t.Error(actualFileContents)
 			}
 		})
 	}

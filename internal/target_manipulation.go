@@ -69,7 +69,9 @@ func ExtractTargetsFromFileContents(fileContents []string, filteredFile string) 
 
 			currentlyInTarget = false
 			clear(currentTargetGlobPatterns)
+			currentTargetGlobPatterns = nil
 			clear(currentTargetContent)
+			currentTargetContent = nil
 		}
 
 		// 4) Find any globs in the files and the patterns they capture
@@ -102,12 +104,18 @@ func CreateNewFileContentsIncludingNewTargets(existingFileContents []string, tar
 
 	for index, line := range existingFileContents {
 		lineToAdd := line
+
 		switch {
+		// If we're currently in a target, our task is just to update several existing target attributes
 		case currentlyInTarget:
 			if index == currentTarget.globAttrLineNumber {
 				lineToAdd = strings.ReplaceAll(line, currentTarget.globAttr, "deps")
 				lineToAdd = strings.ReplaceAll(lineToAdd, "glob([\""+currentTarget.globPatterns[0]+"\"])", "["+createListOfNewTargetNamesFromTarget(currentTarget)+"]")
 			}
+
+			// The current target might require the generation of entirely new targets. If so, we can't add it
+			// whilst we're still in the target as that will mess up the layout. Therefore we add it to the
+			// `newTargetContent` slice so it can be written to file once we're outside of the current target.
 			if index == currentTarget.end {
 				currentlyInTarget = false
 				newTargetContent = createNewTargetsFromGlobbedFiles(currentTarget)
@@ -122,6 +130,13 @@ func CreateNewFileContentsIncludingNewTargets(existingFileContents []string, tar
 		}
 
 		newFileContents = append(newFileContents, lineToAdd)
+	}
+
+	// If we've reached the end of the previous file, but we still have new targets to add, we add can it now
+	// to the very bottom of the file
+	if len(newTargetContent) > 0 {
+		newFileContents = append(newFileContents, newTargetContent...)
+		clear(newTargetContent)
 	}
 
 	return newFileContents
