@@ -10,6 +10,7 @@ import (
 func TestScenarios(t *testing.T) {
 	tests := []string{
 		"scenario_1",
+		"scenario_2",
 	}
 
 	const pathToWorkspace = "example_workspace/"
