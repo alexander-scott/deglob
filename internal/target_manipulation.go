@@ -18,7 +18,6 @@ type Target struct {
 }
 
 var (
-	targetGlobPattern  = regexp.MustCompile(`\s+(?P<attr>.*)\s=\sglob\(\[(?P<files>.*)\]\)`)
 	targetNamePattern  = regexp.MustCompile(`name\s=\s\"(?P<name>.*)\"`)
 	targetStartPattern = regexp.MustCompile(`^cc_library\(.*`) // TODO: Support cc_binary
 	targetEndPattern   = regexp.MustCompile(`^\)\n$`)
@@ -60,7 +59,7 @@ func ExtractTargetsFromFileContents(fileContents []string, filteredFile string) 
 
 				targetsWithGlob = append(targetsWithGlob, target)
 
-				fmt.Println("Found glob in target: " + currentTargetName + " with attr " + currentTargetGlobResult.globAttr + " on line " + fmt.Sprint(currentTargetGlobResult.lineNumber))
+				fmt.Println("Found glob in target: " + currentTargetName + " with attr " + currentTargetGlobResult.globAttr)
 			}
 
 			currentlyInTarget = false
@@ -69,8 +68,11 @@ func ExtractTargetsFromFileContents(fileContents []string, filteredFile string) 
 		}
 
 		// 4) Find any globs in the files and the patterns they capture
-		if currentlyInTarget && targetGlobPattern.MatchString(line) {
-			currentTargetGlobResult = extractAllGlobPatternsFromLine(line, currentLineNumber)
+		if currentlyInTarget {
+			checkLineForGlob := extractAllGlobPatternsFromLine(line)
+			if checkLineForGlob.globFound {
+				currentTargetGlobResult = checkLineForGlob
+			}
 		}
 
 		currentLineNumber++
@@ -94,7 +96,7 @@ func CreateNewFileContentsIncludingNewTargets(existingFileContents []string, tar
 		switch {
 		// If we're currently in a target, our task is just to update several existing target attributes
 		case currentlyInTarget:
-			if index == currentTarget.globSearchResult.lineNumber {
+			if line == currentTarget.globSearchResult.fullLine {
 				lineToAdd = strings.ReplaceAll(line, currentTarget.globSearchResult.globAttr, "deps")
 				// TODO: Work with more glob patterns
 				lineToAdd = strings.ReplaceAll(lineToAdd, "glob([\""+currentTarget.globSearchResult.globPatterns[0]+"\"])", "["+createListOfNewTargetNamesFromTarget(currentTarget)+"]")
@@ -160,7 +162,7 @@ func createNewTargetsFromGlobbedFiles(target Target) []string {
 		newTargetContent = append(newTargetContent, "\n")
 		for _, targetContentLine := range target.content {
 			switch {
-			case targetGlobPattern.MatchString(targetContentLine):
+			case targetContentLine == target.globSearchResult.fullLine:
 				// If this is the glob line of the target, replace it with the explicit source file
 				// TODO: Work with multiple glob patterns
 				newSrcLine := strings.ReplaceAll(targetContentLine, "glob([\""+target.globSearchResult.globPatterns[0]+"\"])", "[\""+targetGlobbedFile+"\"]")
