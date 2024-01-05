@@ -1,13 +1,13 @@
 cc_library(
     name = "files_starting_with_1",
-    deps = [":files_starting_with_1_file_1"],
-    hdrs = ["file_1.h"],
+    deps = [":files_starting_with_1_src_file_1"],
+    hdrs = ["src/file_1.h"],
 )
 
 cc_library(
-    name = "files_starting_with_1_file_1",
-    srcs = ["file_1.cpp"],
-    hdrs = ["file_1.h"],
+    name = "files_starting_with_1_src_file_1",
+    srcs = ["src/file_1.cpp"],
+    hdrs = ["src/file_1.h"],
 )
 
 cc_binary(
@@ -21,15 +21,15 @@ cc_binary(
 
 cc_library(
     name = "files_starting_with_2",
-    deps = [":files_starting_with_2_file_2", ":files_starting_with_2_file_22"],
+    deps = [":files_starting_with_2_src_file_2", ":files_starting_with_2_src_file_22"],
 )
 
 cc_library(
-    name = "files_starting_with_2_file_2",
-    hdrs = ["file_2.cpp"],
+    name = "files_starting_with_2_src_file_2",
+    hdrs = ["src/file_2.cpp"],
 )
 
 cc_library(
-    name = "files_starting_with_2_file_22",
-    hdrs = ["file_22.cpp"],
+    name = "files_starting_with_2_src_file_22",
+    hdrs = ["src/file_22.cpp"],
 )

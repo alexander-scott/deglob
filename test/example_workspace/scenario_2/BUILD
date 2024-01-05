@@ -1,7 +1,7 @@
 cc_library(
     name = "files_starting_with_1",
-    srcs = glob(["file_1*.cpp"]),
-    hdrs = ["file_1.h"],
+    srcs = glob(["src/file_1*.cpp"]),
+    hdrs = ["src/file_1.h"],
 )
 
 cc_binary(
@@ -15,5 +15,5 @@ cc_binary(
 
 cc_library(
     name = "files_starting_with_2",
-    hdrs = glob(["file_2*.cpp"]),
+    hdrs = glob(["src/file_2*.cpp"]),
 )
