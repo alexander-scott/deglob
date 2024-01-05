@@ -1,7 +1,6 @@
 package deglob
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 )
@@ -13,20 +12,15 @@ var (
 	stringInBracketInGlobRegex = regexp.MustCompile(`\"[a-zA-Z0-9_ ,*\.\/]*\"`)
 )
 
+// GlobSearchResult is the main data structure for identifying individual glob patterns on a single line
 type GlobSearchResult struct {
 	globFound    bool
 	globAttr     string
-	lineNumber   int
+	fullLine     string
 	globPatterns []string
 }
 
-func extractAllGlobPatternsFromLine(line string, lineNumber int) GlobSearchResult {
-	// 1) Confirm that we are on the glob line
-	// 2) Get a list of all of the glob() functions
-	// 3) Get a list of all of the brackets in each glob function
-	// 4) Get a list of everything between "" in each brackets
-	// 5) Return
-
+func extractAllGlobPatternsFromLine(line string) GlobSearchResult {
 	if !(basicGlobCheckRegex.MatchString(line)) {
 		return GlobSearchResult{globFound: false}
 	}
@@ -39,20 +33,21 @@ func extractAllGlobPatternsFromLine(line string, lineNumber int) GlobSearchResul
 	// Find all glob functions within the line
 	globMatches := globRegex.FindAllStringSubmatch(value, -1)
 	for _, globMatch := range globMatches {
-		fmt.Println("FOund glob match: " + globMatch[0])
 		// For each glob match, find the arrays within them
 		bracketsMatches := bracketInGlobRegex.FindAllStringSubmatch(globMatch[0], -1)
 		for _, bracketMatch := range bracketsMatches {
-			fmt.Println("FOund bracket in glob match: " + bracketMatch[0])
 			// For each bracket match, find the strings within them
 			stringMatches := stringInBracketInGlobRegex.FindAllStringSubmatch(bracketMatch[0], -1)
 			for _, stringMatch := range stringMatches {
-				fmt.Println("FOund string in bracket in glob match: " + stringMatch[0])
 				globPattern := strings.Trim(stringMatch[0], "\"")
 				foundGlobPatterns = append(foundGlobPatterns, globPattern)
 			}
 		}
 	}
 
-	return GlobSearchResult{globFound: true, globAttr: attr, globPatterns: foundGlobPatterns, lineNumber: lineNumber}
+	if len(foundGlobPatterns) == 0 {
+		panic("Could not find any globs in the following line, yet our basic check regex detected a glob: " + line)
+	}
+
+	return GlobSearchResult{globFound: true, globAttr: attr, globPatterns: foundGlobPatterns, fullLine: line}
 }
