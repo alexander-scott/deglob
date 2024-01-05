@@ -180,8 +180,8 @@ func createNewTargetsFromGlobbedFiles(target Target) []string {
 				newTargetContent = append(newTargetContent, newSrcLine)
 			case targetNamePattern.MatchString(targetContentLine):
 				// If this is the name line of the target, replace it with a new name
-				newNameSuffix := strings.Split(targetGlobbedFile, ".")[0]
-				newNameLine := strings.ReplaceAll(targetContentLine, target.name, target.name+"_"+newNameSuffix)
+				newTargetName := generateNewTargetNameForGlobbedFile(target.name, targetGlobbedFile, false, false)
+				newNameLine := strings.ReplaceAll(targetContentLine, target.name, newTargetName)
 				newTargetContent = append(newTargetContent, newNameLine)
 			default:
 				newTargetContent = append(newTargetContent, targetContentLine)
@@ -196,11 +196,23 @@ func createListOfNewTargetNamesFromTarget(target Target) string {
 	for _, targetGlobbedFile := range target.globbedFiles {
 		for _, targetContentLine := range target.content {
 			if targetNamePattern.MatchString(targetContentLine) {
-				// If this is the name line of the target, replace it with a new name
-				newNameSuffix := strings.Split(targetGlobbedFile, ".")[0]
-				newTargetNames = append(newTargetNames, "\":"+target.name+"_"+newNameSuffix+"\"")
+				newTargetName := generateNewTargetNameForGlobbedFile(target.name, targetGlobbedFile, true, true)
+				newTargetNames = append(newTargetNames, newTargetName)
 			}
 		}
 	}
 	return strings.Join(newTargetNames, ", ")
+}
+
+func generateNewTargetNameForGlobbedFile(targetName string, globbedFileName string, asLabel bool, wrapWithQuotes bool) string {
+	newNameSuffix := strings.Split(globbedFileName, ".")[0]
+	newNameSuffix = strings.ReplaceAll(newNameSuffix, "/", "_")
+	newTargetName := targetName + "_" + newNameSuffix
+	if asLabel {
+		newTargetName = ":" + newTargetName
+	}
+	if wrapWithQuotes {
+		newTargetName = "\"" + newTargetName + "\""
+	}
+	return newTargetName
 }
