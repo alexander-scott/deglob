@@ -8,12 +8,12 @@ func returnTargetNameFromLine(line string) string {
 	return matches[nameIndex]
 }
 
-func createListOfNewTargetNamesFromTarget(target Target) string {
+func createListOfNewTargetNamesFromTarget(t target) string {
 	var newTargetNames []string
-	for _, targetGlobbedFile := range target.globbedFiles {
-		for _, targetContentLine := range target.content {
+	for _, targetGlobbedFile := range t.globbedFiles {
+		for _, targetContentLine := range t.content {
 			if targetNamePattern.MatchString(targetContentLine) {
-				newTargetName := generateNewTargetNameForGlobbedFile(target.name, targetGlobbedFile, true, true)
+				newTargetName := generateNewTargetNameForGlobbedFile(t.name, targetGlobbedFile, true, true)
 				newTargetNames = append(newTargetNames, newTargetName)
 			}
 		}

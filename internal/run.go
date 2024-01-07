@@ -13,17 +13,17 @@ package deglob
 // Run performs the main deglob logic, as specified in the package header
 func Run(workspacePath string, filter string) {
 	// 1) Find every file in a specified path
-	allFiles := FindAllFilesInDirectory(workspacePath)
+	allFiles := findAllFilesInDirectory(workspacePath)
 
 	// 2) Filter files by regex pattern
-	filteredFiles := FilterPathsBasedOnRegexPattern(allFiles, filter)
+	filteredFiles := filterPathsBasedOnRegexPattern(allFiles, filter)
 
 	// 3) For every filtered file, read the file contents
 	for _, filteredFile := range filteredFiles {
 		newFileContents := ProcessFile(filteredFile)
 
 		if newFileContents != nil {
-			WriteContentsToFile(filteredFile, newFileContents)
+			writeContentsToFile(filteredFile, newFileContents)
 		}
 	}
 }
@@ -33,10 +33,10 @@ func Run(workspacePath string, filter string) {
 // with the removal of the globs.
 func ProcessFile(filteredFile string) []string {
 	existingFileContents := LoadFileContentsIntoMemory(filteredFile)
-	targetsWithGlob := ExtractTargetsFromFileContents(existingFileContents, filteredFile)
+	targetsWithGlob := extractTargetsFromFileContents(existingFileContents, filteredFile)
 
 	if len(targetsWithGlob) > 0 {
-		return CreateNewFileContentsIncludingNewTargets(existingFileContents, targetsWithGlob)
+		return createNewFileContentsIncludingNewTargets(existingFileContents, targetsWithGlob)
 	}
 
 	return nil
