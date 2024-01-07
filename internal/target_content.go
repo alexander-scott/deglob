@@ -36,42 +36,42 @@ func ExtractTargetsFromFileContents(fileContents []string, filteredFile string) 
 
 	currentLineNumber := 0
 	for _, line := range fileContents {
-		if targetStartPattern.MatchString(line) && !currentlyInTarget {
+		if !currentlyInTarget && targetStartPattern.MatchString(line) {
 			currentlyInTarget = true
 			currentTargetStartLineNumber = currentLineNumber
 		}
 
 		if currentlyInTarget {
 			currentTargetContent = append(currentTargetContent, line)
-		}
 
-		if currentlyInTarget && targetNamePattern.MatchString(line) {
-			matches := targetNamePattern.FindStringSubmatch(line)
-			nameIndex := targetNamePattern.SubexpIndex("name")
-			currentTargetName = matches[nameIndex]
-		}
+			switch {
+			// If we're at the name of a target
+			case targetNamePattern.MatchString(line):
+				currentTargetName = returnTargetNameFromLine(line)
 
-		if currentlyInTarget && targetEndPattern.MatchString(line) {
-			// Only track target if the target had a glob
-			if currentTargetGlobResult.globFound {
-				target := Target{start: currentTargetStartLineNumber, end: currentLineNumber, name: currentTargetName, globSearchResult: currentTargetGlobResult, content: append([]string(nil), currentTargetContent...)} // deep copy the slices
-				target.globbedFiles = findFilesFromGlobInTargets(target, filteredFile)
+			// If there's a glob on this line
+			case basicGlobCheckRegex.MatchString(line):
+				// Check the current line for a glob
+				// TODO: Allow a target to have globs on multiple lines/attributes
+				checkLineForGlob := extractAllGlobPatternsFromLine(line)
+				if checkLineForGlob.globFound {
+					currentTargetGlobResult = checkLineForGlob
+				}
 
-				targetsWithGlob = append(targetsWithGlob, target)
+			// If we're at the end of the target
+			case targetEndPattern.MatchString(line):
+				if currentTargetGlobResult.globFound {
+					target := Target{start: currentTargetStartLineNumber, end: currentLineNumber, name: currentTargetName, globSearchResult: currentTargetGlobResult, content: append([]string(nil), currentTargetContent...)} // deep copy the slices
+					target.globbedFiles = findFilesFromGlobInTargets(target, filteredFile)
 
-				fmt.Println("Found glob in target: " + currentTargetName + " with attr " + currentTargetGlobResult.globAttr)
-			}
+					targetsWithGlob = append(targetsWithGlob, target)
 
-			currentlyInTarget = false
-			clear(currentTargetContent)
-			currentTargetContent = nil
-		}
+					fmt.Println("Found glob in target: " + currentTargetName + " with attr " + currentTargetGlobResult.globAttr)
+				}
 
-		// 4) Find any globs in the files and the patterns they capture
-		if currentlyInTarget {
-			checkLineForGlob := extractAllGlobPatternsFromLine(line)
-			if checkLineForGlob.globFound {
-				currentTargetGlobResult = checkLineForGlob
+				currentlyInTarget = false
+				clear(currentTargetContent)
+				currentTargetContent = nil
 			}
 		}
 
@@ -178,30 +178,4 @@ func createNewTargetsFromGlobbedFiles(target Target) []string {
 		}
 	}
 	return newTargetContent
-}
-
-func createListOfNewTargetNamesFromTarget(target Target) string {
-	var newTargetNames []string
-	for _, targetGlobbedFile := range target.globbedFiles {
-		for _, targetContentLine := range target.content {
-			if targetNamePattern.MatchString(targetContentLine) {
-				newTargetName := generateNewTargetNameForGlobbedFile(target.name, targetGlobbedFile, true, true)
-				newTargetNames = append(newTargetNames, newTargetName)
-			}
-		}
-	}
-	return strings.Join(newTargetNames, ", ")
-}
-
-func generateNewTargetNameForGlobbedFile(targetName string, globbedFileName string, asLabel bool, wrapWithQuotes bool) string {
-	newNameSuffix := strings.Split(globbedFileName, ".")[0]
-	newNameSuffix = strings.ReplaceAll(newNameSuffix, "/", "_")
-	newTargetName := targetName + "_" + newNameSuffix
-	if asLabel {
-		newTargetName = ":" + newTargetName
-	}
-	if wrapWithQuotes {
-		newTargetName = "\"" + newTargetName + "\""
-	}
-	return newTargetName
 }
