@@ -12,17 +12,17 @@ var (
 	stringInBracketInGlobRegex = regexp.MustCompile(`\"[a-zA-Z0-9_ ,*\.\/]*\"`)
 )
 
-// GlobSearchResult is the main data structure for identifying individual glob patterns on a single line
-type GlobSearchResult struct {
+// globSearchResult is the main data structure for identifying individual glob patterns on a single line
+type globSearchResult struct {
 	globFound    bool
 	globAttr     string
 	fullLine     string
 	globPatterns []string
 }
 
-func extractAllGlobPatternsFromLine(line string) GlobSearchResult {
+func extractAllGlobPatternsFromLine(line string) globSearchResult {
 	if !(basicGlobCheckRegex.MatchString(line)) {
-		return GlobSearchResult{globFound: false}
+		return globSearchResult{globFound: false}
 	}
 
 	attr := strings.TrimSpace(strings.Split(line, " = ")[0])
@@ -49,5 +49,5 @@ func extractAllGlobPatternsFromLine(line string) GlobSearchResult {
 		panic("Could not find any globs in the following line, yet our basic check regex detected a glob: " + line)
 	}
 
-	return GlobSearchResult{globFound: true, globAttr: attr, globPatterns: foundGlobPatterns, fullLine: line}
+	return globSearchResult{globFound: true, globAttr: attr, globPatterns: foundGlobPatterns, fullLine: line}
 }
