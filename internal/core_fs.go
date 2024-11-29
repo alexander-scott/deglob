@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 )
 
-// FindAllFilesInDirectory recursively finds all files within a directory
-func FindAllFilesInDirectory(path string) []string {
+// findAllFilesInDirectory recursively finds all files within a directory
+func findAllFilesInDirectory(path string) []string {
 	var allFiles []string
 	walk := func(s string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -53,8 +53,8 @@ func LoadFileContentsIntoMemory(filePath string) []string {
 	return existingFileContents
 }
 
-// WriteContentsToFile writes a slice of strings into a specific filePath
-func WriteContentsToFile(filePath string, fileContents []string) {
+// writeContentsToFile writes a slice of strings into a specific filePath
+func writeContentsToFile(filePath string, fileContents []string) {
 	err := os.Truncate(filePath, 0) // Clear existing file contents
 	if err != nil {
 		panic(err)
