@@ -6,18 +6,19 @@ import (
 )
 
 var (
-	basicGlobCheckRegex        = regexp.MustCompile(`glob\(\[.*]\)`)
-	globRegex                  = regexp.MustCompile(`glob\(\[[a-zA-Z0-9_\] + \["*\.\/]*\)|\]\)`)
-	bracketInGlobRegex         = regexp.MustCompile(`\[[a-zA-Z0-9_ ,"*\.\/]*\]`)
-	stringInBracketInGlobRegex = regexp.MustCompile(`\"[a-zA-Z0-9_ ,*\.\/]*\"`)
+	basicGlobCheckRegex        = regexp.MustCompile(`glob\(\[.*?\]\)`)
+	globRegex                  = regexp.MustCompile(`glob\(\[.*?\]\)`)
+	bracketInGlobRegex         = regexp.MustCompile(`\[[^\]]*\]`)
+	stringInBracketInGlobRegex = regexp.MustCompile(`"[^"]*"`)
 )
 
 // GlobSearchResult is the main data structure for identifying individual glob patterns on a single line
 type GlobSearchResult struct {
-	globFound    bool
-	globAttr     string
-	fullLine     string
-	globPatterns []string
+	globFound        bool
+	globAttr         string
+	fullLine         string
+	globPatterns     []string
+	explicitIncludes []string
 }
 
 func extractAllGlobPatternsFromLine(line string) GlobSearchResult {
@@ -49,5 +50,53 @@ func extractAllGlobPatternsFromLine(line string) GlobSearchResult {
 		panic("Could not find any globs in the following line, yet our basic check regex detected a glob: " + line)
 	}
 
-	return GlobSearchResult{globFound: true, globAttr: attr, globPatterns: foundGlobPatterns, fullLine: line}
+	// Extract any explicit includes mixed with the glob on the same line (e.g. glob([...]) + ["a.h"])
+	valueWithoutGlobs := globRegex.ReplaceAllString(value, "")
+	var foundExplicitIncludes []string
+	explicitBrackets := bracketInGlobRegex.FindAllStringSubmatch(valueWithoutGlobs, -1)
+	for _, bracketMatch := range explicitBrackets {
+		stringMatches := stringInBracketInGlobRegex.FindAllStringSubmatch(bracketMatch[0], -1)
+		for _, stringMatch := range stringMatches {
+			foundExplicitIncludes = append(foundExplicitIncludes, strings.Trim(stringMatch[0], "\""))
+		}
+	}
+
+	return GlobSearchResult{globFound: true, globAttr: attr, globPatterns: foundGlobPatterns, explicitIncludes: foundExplicitIncludes, fullLine: line}
+}
+
+// JoinMultiLineGlobs pre-processes file contents to join multi-line glob statements onto a single
+// line. For example:
+//
+//	hdrs = glob([
+//	    "*.h",
+//	]),
+//
+// becomes: hdrs = glob([ "*.h", ]),
+func JoinMultiLineGlobs(lines []string) []string {
+	var result []string
+	accumulating := false
+	var accumulated string
+
+	for _, line := range lines {
+		if !accumulating {
+			// Check if this line starts a multi-line glob (has glob([ but no ]) on same line)
+			if strings.Contains(line, "glob([") && !strings.Contains(line, "])") {
+				accumulating = true
+				accumulated = strings.TrimRight(line, "\n")
+				continue
+			}
+			result = append(result, line)
+		} else {
+			// Accumulating a multi-line glob - trim whitespace from each inner line and append
+			trimmed := strings.TrimSpace(strings.TrimRight(line, "\n"))
+			accumulated += " " + trimmed
+			if strings.Contains(trimmed, "])") {
+				accumulating = false
+				result = append(result, accumulated+"\n")
+				accumulated = ""
+			}
+		}
+	}
+
+	return result
 }

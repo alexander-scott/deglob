@@ -7,19 +7,24 @@ import (
 	"strings"
 )
 
+// GlobInfo holds a single glob search result together with the files it matched
+type GlobInfo struct {
+	searchResult GlobSearchResult
+	globbedFiles []string
+}
+
 // Target is the main data structure for identifying targets with globs within files
 type Target struct {
-	start            int
-	end              int
-	name             string
-	content          []string
-	globSearchResult GlobSearchResult
-	globbedFiles     []string
+	start   int
+	end     int
+	name    string
+	content []string
+	globs   []GlobInfo
 }
 
 var (
 	targetNamePattern  = regexp.MustCompile(`name\s=\s\"(?P<name>.*)\"`)
-	targetStartPattern = regexp.MustCompile(`^cc_library\(.*`) // TODO: Support cc_binary
+	targetStartPattern = regexp.MustCompile(`^cc_(library|binary)\(.*`)
 	targetEndPattern   = regexp.MustCompile(`^\)\n$`)
 )
 
@@ -29,7 +34,7 @@ func ExtractTargetsFromFileContents(fileContents []string, filteredFile string) 
 	var targetsWithGlob []Target
 
 	var currentTargetContent []string
-	var currentTargetGlobResult GlobSearchResult
+	var currentTargetGlobResults []GlobSearchResult
 	currentTargetName := ""
 	currentlyInTarget := false
 	currentTargetStartLineNumber := -1
@@ -51,28 +56,40 @@ func ExtractTargetsFromFileContents(fileContents []string, filteredFile string) 
 			currentTargetName = matches[nameIndex]
 		}
 
-		if currentlyInTarget && targetEndPattern.MatchString(line) {
-			// Only track target if the target had a glob
-			if currentTargetGlobResult.globFound {
-				target := Target{start: currentTargetStartLineNumber, end: currentLineNumber, name: currentTargetName, globSearchResult: currentTargetGlobResult, content: append([]string(nil), currentTargetContent...)} // deep copy the slices
-				target.globbedFiles = findFilesFromGlobInTargets(target, filteredFile)
+		// Find any globs in the files and the patterns they capture
+		if currentlyInTarget {
+			checkLineForGlob := extractAllGlobPatternsFromLine(line)
+			if checkLineForGlob.globFound {
+				currentTargetGlobResults = append(currentTargetGlobResults, checkLineForGlob)
+			}
+		}
 
+		if currentlyInTarget && targetEndPattern.MatchString(line) {
+			// Only track target if the target had at least one glob
+			if len(currentTargetGlobResults) > 0 {
+				var globs []GlobInfo
+				for _, globResult := range currentTargetGlobResults {
+					files := findFilesFromGlob(globResult, filteredFile)
+					globs = append(globs, GlobInfo{searchResult: globResult, globbedFiles: files})
+				}
+				target := Target{
+					start:   currentTargetStartLineNumber,
+					end:     currentLineNumber,
+					name:    currentTargetName,
+					content: append([]string(nil), currentTargetContent...),
+					globs:   globs,
+				}
 				targetsWithGlob = append(targetsWithGlob, target)
 
-				fmt.Println("Found glob in target: " + currentTargetName + " with attr " + currentTargetGlobResult.globAttr)
+				for _, glob := range globs {
+					fmt.Println("Found glob in target: " + currentTargetName + " with attr " + glob.searchResult.globAttr)
+				}
 			}
 
 			currentlyInTarget = false
 			clear(currentTargetContent)
 			currentTargetContent = nil
-		}
-
-		// 4) Find any globs in the files and the patterns they capture
-		if currentlyInTarget {
-			checkLineForGlob := extractAllGlobPatternsFromLine(line)
-			if checkLineForGlob.globFound {
-				currentTargetGlobResult = checkLineForGlob
-			}
+			currentTargetGlobResults = nil
 		}
 
 		currentLineNumber++
@@ -81,8 +98,9 @@ func ExtractTargetsFromFileContents(fileContents []string, filteredFile string) 
 	return targetsWithGlob
 }
 
-// CreateNewFileContentsIncludingNewTargets takes a slice of targets and the existing file contents and then
-// inserts the new de-globbed targets into the existing file and returns the entire file as a slice of strings
+// CreateNewFileContentsIncludingNewTargets takes a slice of targets and the existing file contents
+// and inserts the new de-globbed targets into the existing file and returns the entire file as a
+// slice of strings
 func CreateNewFileContentsIncludingNewTargets(existingFileContents []string, targetsWithGlob []Target) []string {
 	var newFileContents []string
 
@@ -91,20 +109,44 @@ func CreateNewFileContentsIncludingNewTargets(existingFileContents []string, tar
 	var currentTarget Target
 
 	for index, line := range existingFileContents {
-		lineToAdd := line
+		var linesToAdd []string
 
 		switch {
 		// If we're currently in a target, our task is just to update several existing target attributes
 		case currentlyInTarget:
-			if line == currentTarget.globSearchResult.fullLine {
-				lineToAdd = strings.ReplaceAll(line, currentTarget.globSearchResult.globAttr, "deps")
-				// TODO: Work with more glob patterns
-				lineToAdd = strings.ReplaceAll(lineToAdd, "glob([\""+currentTarget.globSearchResult.globPatterns[0]+"\"])", "["+createListOfNewTargetNamesFromTarget(currentTarget)+"]")
+			foundGlobIdx := -1
+			for globIdx, glob := range currentTarget.globs {
+				if line == glob.searchResult.fullLine {
+					foundGlobIdx = globIdx
+					break
+				}
 			}
 
-			// The current target might require the generation of entirely new targets. If so, we can't add it
-			// whilst we're still in the target as that will mess up the layout. Therefore we add it to the
-			// `newTargetContent` slice so it can be written to file once we're outside of the current target.
+			switch {
+			case foundGlobIdx == 0:
+				// First glob line: replace with deps listing all new sub-targets
+				indent := extractIndent(line)
+				linesToAdd = append(linesToAdd, indent+"deps = ["+createListOfAllNewTargetNames(currentTarget)+"],\n")
+				// Preserve any explicit includes (e.g. glob([...]) + ["a.h"]) as a separate attribute
+				for _, g := range currentTarget.globs {
+					if len(g.searchResult.explicitIncludes) > 0 {
+						quoted := make([]string, len(g.searchResult.explicitIncludes))
+						for i, inc := range g.searchResult.explicitIncludes {
+							quoted[i] = "\"" + inc + "\""
+						}
+						linesToAdd = append(linesToAdd, indent+g.searchResult.globAttr+" = ["+strings.Join(quoted, ", ")+"],\n")
+					}
+				}
+			case foundGlobIdx > 0:
+				// Subsequent glob lines in the same target: remove (all deps already listed above)
+			default:
+				linesToAdd = append(linesToAdd, line)
+			}
+
+			// The current target might require the generation of entirely new targets. If so, we
+			// can't add it whilst we're still in the target as that will mess up the layout.
+			// Therefore we add it to the `newTargetContent` slice so it can be written to file
+			// once we're outside of the current target.
 			if index == currentTarget.end {
 				currentlyInTarget = false
 				newTargetContent = createNewTargetsFromGlobbedFiles(currentTarget)
@@ -113,16 +155,20 @@ func CreateNewFileContentsIncludingNewTargets(existingFileContents []string, tar
 			newFileContents = append(newFileContents, newTargetContent...)
 			clear(newTargetContent)
 			newTargetContent = nil
+			linesToAdd = append(linesToAdd, line)
 		case !currentlyInTarget && isCurrentLineNumberWithinAnyTarget(index, targetsWithGlob):
 			currentlyInTarget = true
 			currentTarget = returnTargetInCurrentLineNumber(index, targetsWithGlob)
+			linesToAdd = append(linesToAdd, line)
+		default:
+			linesToAdd = append(linesToAdd, line)
 		}
 
-		newFileContents = append(newFileContents, lineToAdd)
+		newFileContents = append(newFileContents, linesToAdd...)
 	}
 
-	// If we've reached the end of the previous file, but we still have new targets to add, we add can it now
-	// to the very bottom of the file
+	// If we've reached the end of the previous file, but we still have new targets to add, we can
+	// add them now to the very bottom of the file
 	if len(newTargetContent) > 0 {
 		newFileContents = append(newFileContents, newTargetContent...)
 		clear(newTargetContent)
@@ -131,16 +177,15 @@ func CreateNewFileContentsIncludingNewTargets(existingFileContents []string, tar
 	return newFileContents
 }
 
-func findFilesFromGlobInTargets(target Target, filteredFile string) []string {
+func findFilesFromGlob(searchResult GlobSearchResult, filteredFile string) []string {
 	packagePath := strings.ReplaceAll(filteredFile, "BUILD", "")
 
 	fmt.Println("Package_path: ", packagePath)
-	fmt.Println("Target content: ", target.content)
-	fmt.Println("Glob attr: ", target.globSearchResult.globAttr)
+	fmt.Println("Glob attr: ", searchResult.globAttr)
 
 	var globbedFiles []string
 
-	for _, globPattern := range target.globSearchResult.globPatterns {
+	for _, globPattern := range searchResult.globPatterns {
 		globCmd := strings.ReplaceAll(filteredFile, "BUILD", globPattern)
 		fmt.Println("Glob_cmd: ", globCmd)
 		files, _ := filepath.Glob(globCmd)
@@ -158,50 +203,60 @@ func findFilesFromGlobInTargets(target Target, filteredFile string) []string {
 
 func createNewTargetsFromGlobbedFiles(target Target) []string {
 	var newTargetContent []string
-	for _, targetGlobbedFile := range target.globbedFiles {
-		newTargetContent = append(newTargetContent, "\n")
-		for _, targetContentLine := range target.content {
-			switch {
-			case targetContentLine == target.globSearchResult.fullLine:
-				// If this is the glob line of the target, replace it with the explicit source file
-				// TODO: Work with multiple glob patterns
-				newSrcLine := strings.ReplaceAll(targetContentLine, "glob([\""+target.globSearchResult.globPatterns[0]+"\"])", "[\""+targetGlobbedFile+"\"]")
-				newTargetContent = append(newTargetContent, newSrcLine)
-			case targetNamePattern.MatchString(targetContentLine):
-				// If this is the name line of the target, replace it with a new name
-				newTargetName := generateNewTargetNameForGlobbedFile(target.name, targetGlobbedFile, false, false)
-				newNameLine := strings.ReplaceAll(targetContentLine, target.name, newTargetName)
-				newTargetContent = append(newTargetContent, newNameLine)
-			default:
-				newTargetContent = append(newTargetContent, targetContentLine)
+	for _, glob := range target.globs {
+		for _, globbedFile := range glob.globbedFiles {
+			newTargetContent = append(newTargetContent, "\n")
+			for _, contentLine := range target.content {
+				switch {
+				case isAnyGlobLine(contentLine, target.globs) && contentLine != glob.searchResult.fullLine:
+					// Skip other glob lines when building this sub-target
+					continue
+				case contentLine == glob.searchResult.fullLine:
+					// Replace this glob line with the explicit source file reference
+					indent := extractIndent(contentLine)
+					newTargetContent = append(newTargetContent, indent+glob.searchResult.globAttr+" = [\""+globbedFile+"\"],\n")
+				case targetNamePattern.MatchString(contentLine):
+					// Replace the target name with the generated sub-target name
+					newTargetName := generateNewTargetNameForGlobbedFile(target.name, globbedFile)
+					newNameLine := strings.ReplaceAll(contentLine, target.name, newTargetName)
+					newTargetContent = append(newTargetContent, newNameLine)
+				case strings.HasPrefix(contentLine, "cc_binary("):
+					// Sub-targets derived from a cc_binary are cc_library targets
+					newTargetContent = append(newTargetContent, strings.Replace(contentLine, "cc_binary(", "cc_library(", 1))
+				default:
+					newTargetContent = append(newTargetContent, contentLine)
+				}
 			}
 		}
 	}
 	return newTargetContent
 }
 
-func createListOfNewTargetNamesFromTarget(target Target) string {
+func isAnyGlobLine(line string, globs []GlobInfo) bool {
+	for _, glob := range globs {
+		if line == glob.searchResult.fullLine {
+			return true
+		}
+	}
+	return false
+}
+
+func createListOfAllNewTargetNames(target Target) string {
 	var newTargetNames []string
-	for _, targetGlobbedFile := range target.globbedFiles {
-		for _, targetContentLine := range target.content {
-			if targetNamePattern.MatchString(targetContentLine) {
-				newTargetName := generateNewTargetNameForGlobbedFile(target.name, targetGlobbedFile, true, true)
-				newTargetNames = append(newTargetNames, newTargetName)
-			}
+	for _, glob := range target.globs {
+		for _, globbedFile := range glob.globbedFiles {
+			newTargetNames = append(newTargetNames, "\":"+generateNewTargetNameForGlobbedFile(target.name, globbedFile)+"\"")
 		}
 	}
 	return strings.Join(newTargetNames, ", ")
 }
 
-func generateNewTargetNameForGlobbedFile(targetName string, globbedFileName string, asLabel bool, wrapWithQuotes bool) string {
-	newNameSuffix := strings.Split(globbedFileName, ".")[0]
+func extractIndent(line string) string {
+	return line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+}
+
+func generateNewTargetNameForGlobbedFile(targetName string, globbedFileName string) string {
+	newNameSuffix := strings.ReplaceAll(globbedFileName, ".", "_")
 	newNameSuffix = strings.ReplaceAll(newNameSuffix, "/", "_")
-	newTargetName := targetName + "_" + newNameSuffix
-	if asLabel {
-		newTargetName = ":" + newTargetName
-	}
-	if wrapWithQuotes {
-		newTargetName = "\"" + newTargetName + "\""
-	}
-	return newTargetName
+	return targetName + "_" + newNameSuffix
 }
