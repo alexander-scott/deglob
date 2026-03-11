@@ -1,5 +1,5 @@
 # You can pick any Debian/Ubuntu-based image. 😊
-FROM mcr.microsoft.com/devcontainers/go:1.21-bullseye
+FROM mcr.microsoft.com/devcontainers/go:1.24-bullseye
 
 # Options for setup script
 ARG INSTALL_ZSH="true"
