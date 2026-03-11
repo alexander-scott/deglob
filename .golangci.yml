@@ -6,8 +6,6 @@ linters-settings:
     min-complexity: 15
   goimports:
     local-prefixes: github.com/alexander-scott/deglob
-  govet:
-    check-shadowing: false
   misspell:
     locale: US
   nolintlint:
@@ -44,7 +42,6 @@ linters:
     - nakedret
     - noctx
     - nolintlint
-    - shadow
     - staticcheck
     - stylecheck
     - sqlclosecheck
