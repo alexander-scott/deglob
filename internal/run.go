@@ -33,10 +33,11 @@ func Run(workspacePath string, filter string) {
 // with the removal of the globs.
 func ProcessFile(filteredFile string) []string {
 	existingFileContents := LoadFileContentsIntoMemory(filteredFile)
-	targetsWithGlob := ExtractTargetsFromFileContents(existingFileContents, filteredFile)
+	joinedContents := JoinMultiLineGlobs(existingFileContents)
+	targetsWithGlob := ExtractTargetsFromFileContents(joinedContents, filteredFile)
 
 	if len(targetsWithGlob) > 0 {
-		return CreateNewFileContentsIncludingNewTargets(existingFileContents, targetsWithGlob)
+		return CreateNewFileContentsIncludingNewTargets(joinedContents, targetsWithGlob)
 	}
 
 	return nil

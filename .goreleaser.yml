@@ -1,3 +1,4 @@
+version: 2
 before:
   hooks:
     - go mod download
@@ -14,7 +15,8 @@ builds:
 archives:
   - format_overrides:
       - goos: windows
-        format: zip
+        formats:
+          - zip
 dockers:
   - image_templates:
       - "ghcr.io/alexander-scott/deglob:latest"
