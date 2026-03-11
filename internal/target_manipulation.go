@@ -208,7 +208,7 @@ func createNewTargetsFromGlobbedFiles(target Target) []string {
 			newTargetContent = append(newTargetContent, "\n")
 			for _, contentLine := range target.content {
 				switch {
-				case isAnyGlobLine(contentLine, target.globs) && contentLine != glob.searchResult.fullLine:
+				case isOtherGlobLine(contentLine, glob, target.globs):
 					// Skip other glob lines when building this sub-target
 					continue
 				case contentLine == glob.searchResult.fullLine:
@@ -239,6 +239,11 @@ func isAnyGlobLine(line string, globs []GlobInfo) bool {
 		}
 	}
 	return false
+}
+
+// isOtherGlobLine returns true when line is a glob line belonging to a different glob than currentGlob.
+func isOtherGlobLine(line string, currentGlob GlobInfo, allGlobs []GlobInfo) bool {
+	return isAnyGlobLine(line, allGlobs) && line != currentGlob.searchResult.fullLine
 }
 
 func createListOfAllNewTargetNames(target Target) string {

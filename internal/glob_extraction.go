@@ -6,8 +6,9 @@ import (
 )
 
 var (
-	basicGlobCheckRegex        = regexp.MustCompile(`glob\(\[.*?\]\)`)
-	globRegex                  = regexp.MustCompile(`glob\(\[.*?\]\)`)
+	// globCallRegex matches a single glob([...]) call and is used both to detect
+	// whether a line contains a glob and to extract all glob calls from a line.
+	globCallRegex              = regexp.MustCompile(`glob\(\[.*?\]\)`)
 	bracketInGlobRegex         = regexp.MustCompile(`\[[^\]]*\]`)
 	stringInBracketInGlobRegex = regexp.MustCompile(`"[^"]*"`)
 )
@@ -22,7 +23,7 @@ type GlobSearchResult struct {
 }
 
 func extractAllGlobPatternsFromLine(line string) GlobSearchResult {
-	if !(basicGlobCheckRegex.MatchString(line)) {
+	if !(globCallRegex.MatchString(line)) {
 		return GlobSearchResult{globFound: false}
 	}
 
@@ -32,7 +33,7 @@ func extractAllGlobPatternsFromLine(line string) GlobSearchResult {
 	var foundGlobPatterns []string
 
 	// Find all glob functions within the line
-	globMatches := globRegex.FindAllStringSubmatch(value, -1)
+	globMatches := globCallRegex.FindAllStringSubmatch(value, -1)
 	for _, globMatch := range globMatches {
 		// For each glob match, find the arrays within them
 		bracketsMatches := bracketInGlobRegex.FindAllStringSubmatch(globMatch[0], -1)
@@ -51,7 +52,7 @@ func extractAllGlobPatternsFromLine(line string) GlobSearchResult {
 	}
 
 	// Extract any explicit includes mixed with the glob on the same line (e.g. glob([...]) + ["a.h"])
-	valueWithoutGlobs := globRegex.ReplaceAllString(value, "")
+	valueWithoutGlobs := globCallRegex.ReplaceAllString(value, "")
 	var foundExplicitIncludes []string
 	explicitBrackets := bracketInGlobRegex.FindAllStringSubmatch(valueWithoutGlobs, -1)
 	for _, bracketMatch := range explicitBrackets {
