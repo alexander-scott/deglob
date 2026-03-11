@@ -36,5 +36,51 @@ release:
   name_template: "{{.Version}}"
   prerelease: auto
   mode: append
+  footer: |
+    ## Getting Started
+
+    ### Binary
+
+    Download the archive for your platform from the assets below, extract it, and place the binary on your `PATH`:
+
+    ```bash
+    # Linux / macOS (replace <os> and <version> with the appropriate values)
+    tar -xzf deglob_<version>_<os>_amd64.tar.gz
+    chmod +x deglob
+    sudo mv deglob /usr/local/bin/
+    ```
+
+    ### Docker
+
+    ```bash
+    # Pull the latest image
+    docker pull ghcr.io/alexander-scott/deglob:latest
+
+    # Or pull this specific release
+    docker pull ghcr.io/alexander-scott/deglob:{{ .Tag }}
+    ```
+
+    ### Usage
+
+    ```bash
+    # Run the binary directly
+    deglob -workspace_path=/path/to/your/bazel/workspace
+
+    # Run via Docker
+    docker run --rm \
+      -v /path/to/your/workspace:/workspace \
+      ghcr.io/alexander-scott/deglob:{{ .Tag }} \
+      -workspace_path=/workspace
+    ```
+
+    See the [README](https://github.com/alexander-scott/deglob#readme) for full documentation.
 changelog:
-  disable: true
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - 'Merge pull request'
+      - 'Merge branch'
