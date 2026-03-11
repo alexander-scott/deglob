@@ -12,6 +12,14 @@ func TestScenarios(t *testing.T) {
 	tests := []string{
 		"scenario_1",
 		"scenario_2",
+		"scenario_3",
+		"scenario_4",
+		"scenario_5",
+		"scenario_6",
+		"scenario_7",
+		"scenario_8",
+		"scenario_9",
+		"scenario_10",
 	}
 
 	const pathToWorkspace = "example_workspace/"
