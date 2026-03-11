@@ -7,7 +7,7 @@ linters-settings:
   goimports:
     local-prefixes: github.com/alexander-scott/deglob
   govet:
-    check-shadowing: true
+    check-shadowing: false
   misspell:
     locale: US
   nolintlint:
@@ -24,8 +24,8 @@ linters:
     - bodyclose
     - dogsled
     - dupl
+    - copyloopvar
     - errcheck
-    - exportloopref
     - funlen
     - gochecknoinits
     - gocritic
@@ -44,6 +44,7 @@ linters:
     - nakedret
     - noctx
     - nolintlint
+    - shadow
     - staticcheck
     - stylecheck
     - sqlclosecheck
